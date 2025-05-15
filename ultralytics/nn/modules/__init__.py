@@ -47,7 +47,7 @@ from .block import (
     CBFuse,
     CBLinear,
     ContrastiveHead,
-    GhostBottleneck,
+   
     HGBlock,
     HGStem,
     ImagePoolingAttn,
@@ -59,6 +59,14 @@ from .block import (
     ResNetLayer,
     SCDown,
     TorchVision,
+    Conv,
+    GhostConv, 
+    GhostSPPF, 
+    GhostBottleneck,  
+    ECA,
+
+
+
 )
 from .conv import (
     CBAM,
@@ -103,6 +111,9 @@ from .transformer import (
 )
 
 __all__ = (
+    "GhostConv", 
+    "GhostSPPF", 
+    "ECA",
     "Conv",
     "Conv2",
     "LightConv",

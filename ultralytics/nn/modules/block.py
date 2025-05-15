@@ -26,8 +26,7 @@ __all__ = (
     "BNContrastiveHead",
     "C3x",
     "C3TR",
-    "C3Ghost",
-    "GhostBottleneck",
+    "C3Ghost"
     "Bottleneck",
     "BottleneckCSP",
     "Proto",
@@ -50,6 +49,12 @@ __all__ = (
     "PSA",
     "SCDown",
     "TorchVision",
+    "Conv", 
+    "GhostConv", 
+    "GhostSPPF", 
+    "GhostBottleneck", 
+    "ECA",
+
 )
 
 
@@ -1964,3 +1969,34 @@ class SAVPE(nn.Module):
         aggregated = score.transpose(-2, -3) @ x.reshape(B, self.c, C // self.c, -1).transpose(-1, -2)
 
         return F.normalize(aggregated.transpose(-2, -3).reshape(B, Q, -1), dim=-1, p=2)
+
+class ECA(nn.Module):
+    """Efficient Channel Attention (ECA) block"""
+
+    def __init__(self, channels, k_size=3):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.conv = nn.Conv1d(1, 1, kernel_size=k_size, padding=k_size // 2, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        y = self.avg_pool(x)
+        y = self.conv(y.squeeze(-1).transpose(-1, -2))
+        y = self.sigmoid(y).transpose(-1, -2).unsqueeze(-1)
+        return x * y.expand_as(x)
+
+class GhostSPPF(nn.Module):
+    """Ghost Spatial Pyramid Pooling - Fast (SPPF) layer."""
+
+    def __init__(self, c1, c2, k=5):
+        super().__init__()
+        c_ = c1 // 2
+        self.cv1 = GhostConv(c1, c_, 1, 1)
+        self.cv2 = GhostConv(c_ * 4, c2, 1, 1)
+        self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
+
+    def forward(self, x):
+        y = [self.cv1(x)]
+        y.extend(self.m(y[-1]) for _ in range(3))
+        return self.cv2(torch.cat(y, 1))
+
