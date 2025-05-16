@@ -64,6 +64,7 @@ from .block import (
     GhostSPPF, 
     GhostBottleneck,  
     ECA,
+    CoordAtt,
 
 
 

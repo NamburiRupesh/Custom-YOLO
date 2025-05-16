@@ -54,6 +54,7 @@ __all__ = (
     "GhostSPPF", 
     "GhostBottleneck", 
     "ECA",
+    "CoordAtt",
 
 )
 
@@ -1971,12 +1972,14 @@ class SAVPE(nn.Module):
         return F.normalize(aggregated.transpose(-2, -3).reshape(B, Q, -1), dim=-1, p=2)
 
 class ECA(nn.Module):
-    """Efficient Channel Attention (ECA) block"""
+    """Efficient Channel Attention with dynamic kernel size."""
 
-    def __init__(self, channels, k_size=3):
+    def __init__(self, channels, gamma=2, b=1):
         super().__init__()
+        t = int(abs((torch.log2(torch.tensor(channels, dtype=torch.float32)) + b) / gamma))
+        k = t if t % 2 else t + 1  # ensure kernel size is odd
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.conv = nn.Conv1d(1, 1, kernel_size=k_size, padding=k_size // 2, bias=False)
+        self.conv = nn.Conv1d(1, 1, kernel_size=k, padding=k // 2, bias=False)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
@@ -1999,4 +2002,29 @@ class GhostSPPF(nn.Module):
         y = [self.cv1(x)]
         y.extend(self.m(y[-1]) for _ in range(3))
         return self.cv2(torch.cat(y, 1))
+
+class CoordAtt(nn.Module):
+    def __init__(self, inp, reduction=32):
+        super().__init__()
+        self.pool = nn.AdaptiveAvgPool2d((None, 1))
+        mip = max(8, inp // reduction)
+        self.conv1 = nn.Conv2d(inp, mip, kernel_size=1, stride=1, padding=0)
+        self.bn1 = nn.BatchNorm2d(mip)
+        self.act = nn.ReLU()
+        self.conv_h = nn.Conv2d(mip, inp, kernel_size=1, stride=1, padding=0)
+        self.conv_w = nn.Conv2d(mip, inp, kernel_size=1, stride=1, padding=0)
+
+    def forward(self, x):
+        identity = x
+        n, c, h, w = x.size()
+        x_h = self.pool(x)
+        x_w = self.pool(x.permute(0, 1, 3, 2))
+        y = torch.cat([x_h, x_w.permute(0, 1, 3, 2)], dim=2)
+        y = self.conv1(y)
+        y = self.bn1(y)
+        y = self.act(y)
+        x_h, x_w = torch.split(y, [h, w], dim=2)
+        a = torch.sigmoid(self.conv_h(x_h) + self.conv_w(x_w))
+        return identity * a
+
 

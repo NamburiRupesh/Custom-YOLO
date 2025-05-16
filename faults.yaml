@@ -1,0 +1,17 @@
+train: C:\Users\rupes\project_eoc_yolo\yolo_v11\PVEL-AD\PVEL-AD\images\train
+val: C:\Users\rupes\project_eoc_yolo\yolo_v11\PVEL-AD\PVEL-AD\images\val
+nc: 12  # Number of classes
+
+names:
+  - black_core
+  - crack
+  - finger
+  - star_crack
+  - thick_line
+  - corner
+  - fragment
+  - scratch
+  - printing_error
+  - horizontal_dislocation
+  - vertical_dislocation
+  - short_circuit
